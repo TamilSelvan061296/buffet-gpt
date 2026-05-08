@@ -6,6 +6,7 @@ from langchain_core.documents import Document
 
 from data_ingestor import HtmlLoader, PdfLoader, Chunker
 from embedder import Embedder
+from buffet_vector_store import BuffetVectorStore
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -27,6 +28,7 @@ def main():
     paths = config["data_folder_paths"]
     chunking = config["chunking"]
     embeddings_cfg = config["embeddings"]
+    vector_store_cfg = config["vector_store"]
 
     docs: list[Document] = []
 
@@ -54,6 +56,16 @@ def main():
     logging.info("Embedding chunks")
     embedder = Embedder(model=embeddings_cfg["model"])
     vectors = embedder.embed_chunks(chunks)
+
+    # store the embeddings in the vector store
+    logging.info("Storing embeddings in vector store")
+    vector_store = BuffetVectorStore(
+        path=vector_store_cfg["path"],
+        collection_name=vector_store_cfg["collection_name"],
+        vector_size=vector_store_cfg["vector_size"],
+        embeddings=embedder.embeddings,
+    )
+    vector_store.store_embeddings(chunks, vectors)
 
 
 

@@ -8,3 +8,8 @@ chunking:
 
 embeddings:
   model: voyage-3-large
+
+vector_store:
+  path: /home/tamil/work/skunkworks/buffet-gpt/qdrant_storage
+  collection_name: buffet_letters
+  vector_size: 1024
