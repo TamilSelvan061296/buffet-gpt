@@ -2,3 +2,5 @@
 uv.lock
 __pycache__/
 *.pyc
+app.log
+.ipynb_checkpoints/

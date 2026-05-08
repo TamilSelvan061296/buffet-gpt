@@ -1,0 +1,7 @@
+data_folder_paths:
+  html_folder_path: /home/tamil/work/skunkworks/buffet-gpt/src/buffet_sink/html/
+  pdf_folder_path: /home/tamil/work/skunkworks/buffet-gpt/src/buffet_sink/pdf/
+
+chunking:
+  chunk_size: 1000
+  chunk_overlap: 200
