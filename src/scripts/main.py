@@ -5,6 +5,7 @@ import yaml
 from langchain_core.documents import Document
 
 from data_ingestor import HtmlLoader, PdfLoader, Chunker
+from embedder import Embedder
 
 logging.basicConfig(
     level=logging.DEBUG,
@@ -25,6 +26,7 @@ def main():
     config = load_config()
     paths = config["data_folder_paths"]
     chunking = config["chunking"]
+    embeddings_cfg = config["embeddings"]
 
     docs: list[Document] = []
 
@@ -47,6 +49,11 @@ def main():
         chunk_overlap=chunking["chunk_overlap"],
     )
     chunks = c.chunk_docs(docs=docs)
+
+    # embed the docs
+    logging.info("Embedding chunks")
+    embedder = Embedder(model=embeddings_cfg["model"])
+    vectors = embedder.embed_chunks(chunks)
 
 
 

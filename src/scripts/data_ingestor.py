@@ -24,8 +24,8 @@ class HtmlLoader:
                 for doc in loader.load():
                     doc.metadata["year"] = int(path.stem)
                     docs.append(doc)
-            except:
-                logger.error(f"Error while parsing {path}")
+            except Exception as e:
+                logger.error(f"Error: {e}")
         return docs
 
 class PdfLoader:
@@ -44,8 +44,8 @@ class PdfLoader:
                 for doc in loader.load():
                     doc.metadata["year"] = int(path.stem)
                     docs.append(doc)
-            except:
-                logger.error(f"Error while parsing {path}")
+            except Exception as e:
+                logger.error(f"Error: {e}")
         return docs
 
 

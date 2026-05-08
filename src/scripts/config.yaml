@@ -5,3 +5,6 @@ data_folder_paths:
 chunking:
   chunk_size: 1000
   chunk_overlap: 200
+
+embeddings:
+  model: voyage-3-large
