@@ -13,3 +13,6 @@ vector_store:
   path: /home/tamil/work/skunkworks/buffet-gpt/qdrant_storage
   collection_name: buffet_letters
   vector_size: 1024
+
+sessions:
+  db_path: /home/tamil/work/skunkworks/buffet-gpt/sessions.db
