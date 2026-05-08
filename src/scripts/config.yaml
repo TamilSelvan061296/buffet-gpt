@@ -7,7 +7,7 @@ chunking:
   chunk_overlap: 200
 
 embeddings:
-  model: voyage-3-large
+  model: voyage-4-large
 
 vector_store:
   path: /home/tamil/work/skunkworks/buffet-gpt/qdrant_storage
