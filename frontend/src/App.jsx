@@ -220,11 +220,16 @@ export default function App() {
           get things wrong.
         </p>
 
-        {hasMessages && (
-          <footer className="credits">
-            chatwarrenbuffet.com — built on the 1977–2024 shareholder letters.
-          </footer>
-        )}
+        <footer className="credits">
+          Built and maintained by{' '}
+          <a
+            href="https://www.linkedin.com/in/tamil-selvan-murugesan/"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Tamil Selvan Murugesan
+          </a>
+        </footer>
       </main>
     </div>
   )

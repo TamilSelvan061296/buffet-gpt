@@ -254,12 +254,15 @@ body {
 .disclaimer sup { font-size: 12px; }
 
 .credits {
-  margin-top: 40px;
-  padding-top: 24px;
-  border-top: 1px solid var(--rule);
+  margin-top: 18px;
   text-align: center;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
+}
+.credits a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 @media (max-width: 600px) {

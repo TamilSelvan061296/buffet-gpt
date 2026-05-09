@@ -12,7 +12,7 @@ from .agent import build_agent
 from .schemas import ChatRequest
 
 
-CONFIG_PATH = Path(__file__).resolve().parent.parent / "scripts" / "config.yaml"
+CONFIG_PATH = Path(__file__).resolve().parent.parent / "ingestion_pipeline" / "config.yaml"
 FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
