@@ -32,6 +32,31 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 
+def serialize_source(doc) -> dict:
+    metadata = getattr(doc, "metadata", {}) or {}
+    return {
+        "year": metadata.get("year"),
+        "source": metadata.get("source"),
+        "start_index": metadata.get("start_index"),
+        "content": getattr(doc, "page_content", ""),
+    }
+
+
+def serialize_tool_content(content) -> list[dict]:
+    if not isinstance(content, str) or not content.strip():
+        return []
+    return [
+        {
+            "year": None,
+            "source": None,
+            "start_index": None,
+            "content": block.strip(),
+        }
+        for block in content.split("\n\n")
+        if block.strip()
+    ]
+
+
 @app.post("/chat")
 async def chat(req: ChatRequest):
     cfg = {"configurable": {"thread_id": req.session_id}}
@@ -46,6 +71,13 @@ async def chat(req: ChatRequest):
             print(chunk)
             
             if chunk.type == "tool":
+                artifact = getattr(chunk, "artifact", None)
+                if artifact:
+                    sources = [serialize_source(doc) for doc in artifact]
+                else:
+                    sources = serialize_tool_content(chunk.content)
+                if sources:
+                    yield f"event: sources\ndata: {json.dumps(sources)}\n\n"
                 continue
             text = ""
             if isinstance(chunk.content, str):

@@ -21,6 +21,7 @@ export default function App() {
   const [messages, setMessages] = useState([])
   const [exampleIndex, setExampleIndex] = useState(0)
   const [loading, setLoading] = useState(false)
+  const [openSourcesId, setOpenSourcesId] = useState(null)
   const sessionRef = useRef(getSessionId())
   const chatEndRef = useRef(null)
   const hasMessages = messages.length > 0
@@ -44,6 +45,7 @@ export default function App() {
     sessionRef.current = id
     setMessages([])
     setQuestion('')
+    setOpenSourcesId(null)
   }
 
   async function handleSubmit(e) {
@@ -89,6 +91,17 @@ export default function App() {
             else if (line.startsWith('event: ')) type = line.slice(7)
           }
           if (type === 'end') break outer
+          if (type === 'sources' && data) {
+            const sources = JSON.parse(data)
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantId
+                  ? { ...message, sources }
+                  : message
+              )
+            )
+            continue
+          }
           if (data) {
             const chunk = JSON.parse(data)
             setMessages((prev) =>
@@ -176,6 +189,33 @@ export default function App() {
                     <span className="cursor">▍</span>
                   )}
                 </div>
+                {message.role === 'assistant' && message.sources?.length > 0 && (
+                  <div className="source-area">
+                    <button
+                      className="sources-btn"
+                      type="button"
+                      onClick={() =>
+                        setOpenSourcesId((current) =>
+                          current === message.id ? null : message.id
+                        )
+                      }
+                    >
+                      Sources
+                    </button>
+                    {openSourcesId === message.id && (
+                      <div className="sources-panel">
+                        {message.sources.map((source, index) => (
+                          <article className="source-card" key={`${message.id}-${index}`}>
+                            <div className="source-title">
+                              {source.year ? `${source.year} letter` : `Source ${index + 1}`}
+                            </div>
+                            <p>{source.content}</p>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
             <div ref={chatEndRef} />
