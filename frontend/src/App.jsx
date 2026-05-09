@@ -1,6 +1,11 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 const SESSION_KEY = 'buffet-session-id'
+const EXAMPLE_QUESTIONS = [
+  'How is value investing different from growth investing?',
+  'What makes a business worth holding for decades?',
+  'When should I avoid buying a stock?',
+]
 
 function getSessionId() {
   let id = localStorage.getItem(SESSION_KEY)
@@ -13,16 +18,46 @@ function getSessionId() {
 
 export default function App() {
   const [question, setQuestion] = useState('')
-  const [answer, setAnswer] = useState('')
+  const [messages, setMessages] = useState([])
+  const [exampleIndex, setExampleIndex] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState(null)
   const sessionRef = useRef(getSessionId())
+  const chatEndRef = useRef(null)
+  const hasMessages = messages.length > 0
+
+  useEffect(() => {
+    if (hasMessages || question) return undefined
+    const interval = window.setInterval(() => {
+      setExampleIndex((current) => (current + 1) % EXAMPLE_QUESTIONS.length)
+    }, 2800)
+    return () => window.clearInterval(interval)
+  }, [hasMessages, question])
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages, loading])
+
+  function startNewChat() {
+    if (loading) return
+    const id = crypto.randomUUID()
+    localStorage.setItem(SESSION_KEY, id)
+    sessionRef.current = id
+    setMessages([])
+    setQuestion('')
+  }
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!question.trim() || loading) return
-    setAnswer('')
-    setError(null)
+    const text = question.trim()
+    if (!text || loading) return
+
+    const assistantId = crypto.randomUUID()
+    setMessages((prev) => [
+      ...prev,
+      { id: crypto.randomUUID(), role: 'user', content: text },
+      { id: assistantId, role: 'assistant', content: '' },
+    ])
+    setQuestion('')
     setLoading(true)
 
     try {
@@ -31,7 +66,7 @@ export default function App() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           session_id: sessionRef.current,
-          message: question,
+          message: text,
         }),
       })
       if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
@@ -54,11 +89,26 @@ export default function App() {
             else if (line.startsWith('event: ')) type = line.slice(7)
           }
           if (type === 'end') break outer
-          if (data) setAnswer((prev) => prev + JSON.parse(data))
+          if (data) {
+            const chunk = JSON.parse(data)
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantId
+                  ? { ...message, content: message.content + chunk }
+                  : message
+              )
+            )
+          }
         }
       }
     } catch (err) {
-      setError(err.message)
+      setMessages((prev) =>
+        prev.map((message) =>
+          message.id === assistantId
+            ? { ...message, content: `[error: ${err.message}]`, error: true }
+            : message
+        )
+      )
     } finally {
       setLoading(false)
     }
@@ -71,29 +121,85 @@ export default function App() {
     }
   }
 
-  const showResponse = loading || answer || error
-
   return (
-    <div className="page">
+    <div className={`page ${hasMessages ? 'chat-mode' : 'landing-mode'}`}>
       <main className="hero">
-        <div className="portrait" aria-hidden="true">WB</div>
+        {hasMessages ? (
+          <header className="topbar">
+            <div className="brand">
+              <div className="portrait" aria-hidden="true">WB</div>
+              <div>
+                <h1 className="title">Chat Warren Buffett</h1>
+                <p className="tagline">
+                  Ask Warren Buffett<sup>*</sup> anything.
+                </p>
+              </div>
+            </div>
+            <button
+              className="new-chat"
+              type="button"
+              onClick={startNewChat}
+              disabled={loading}
+            >
+              New chat
+            </button>
+          </header>
+        ) : (
+          <section className="landing-brand" aria-label="BuffettBot">
+            <img
+              className="landing-portrait"
+              src="/warren-buffet.png"
+              alt=""
+              onError={(e) => {
+                e.currentTarget.style.display = 'none'
+              }}
+            />
+            <p className="landing-subtitle">
+              Ask Warren Buffett<sup>*</sup> anything!
+            </p>
+          </section>
+        )}
 
-        <h1 className="title">Chat Warren Buffet</h1>
-        <p className="tagline">
-          Ask Warren Buffett<sup>*</sup> anything!
-        </p>
+        {hasMessages && (
+          <section className="conversation" aria-live="polite">
+            {messages.map((message) => (
+              <div
+                className={`message ${message.role} ${message.error ? 'error' : ''}`}
+                key={message.id}
+              >
+                <div className="message-label">
+                  {message.role === 'user' ? 'You' : 'Buffett'}
+                </div>
+                <div className="message-body">
+                  {message.content}
+                  {loading && message.id === messages[messages.length - 1]?.id && (
+                    <span className="cursor">▍</span>
+                  )}
+                </div>
+              </div>
+            ))}
+            <div ref={chatEndRef} />
+          </section>
+        )}
 
         <form className="ask" onSubmit={handleSubmit}>
-          <textarea
-            className="ask-input"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="What's your philosophy on holding stocks for the long term?"
-            rows={1}
-            disabled={loading}
-            autoFocus
-          />
+          <div className="input-wrap">
+            {!hasMessages && !question && (
+              <div className="example-placeholder" key={exampleIndex}>
+                {EXAMPLE_QUESTIONS[exampleIndex]}
+              </div>
+            )}
+            <textarea
+              className="ask-input"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={hasMessages ? 'Ask a follow-up' : ''}
+              rows={1}
+              disabled={loading}
+              autoFocus
+            />
+          </div>
           <button
             className="send-btn"
             type="submit"
@@ -107,45 +213,18 @@ export default function App() {
           </button>
         </form>
 
-        {showResponse && (
-          <section className="response">
-            <div className="response-label">Response</div>
-            <div className="response-body">
-              {error ? <span className="error">[error: {error}]</span> : answer}
-              {loading && <span className="cursor">▍</span>}
-            </div>
-          </section>
-        )}
-
         <p className="disclaimer">
-          <sup>*</sup> This is not actually Warren Buffett (obviously!). It
-          summarizes what he&apos;s said in his Berkshire Hathaway shareholder
-          letters using a retrieval system over the 1977–2024 letters and an
-          LLM. It&apos;s not perfect — if something looks off, take it with a
-          grain of salt.
+          <sup>*</sup> This is an AI experience inspired by Warren Buffett&apos;s
+          Berkshire Hathaway shareholder letters from 1977–2024. It uses
+          retrieval over those letters to answer in his style, but it may still
+          get things wrong.
         </p>
 
-        <section className="cards">
-          {/* Drop affiliate links into href below */}
-          <a className="card" href="#" target="_blank" rel="noopener noreferrer">
-            <div className="card-title">THE BOOK</div>
-            <div className="card-body">
-              <strong>Berkshire Hathaway Letters to Shareholders</strong>
-              <span>By Warren Buffett</span>
-            </div>
-          </a>
-          <a className="card" href="#" target="_blank" rel="noopener noreferrer">
-            <div className="card-title">THE CHART</div>
-            <div className="card-body">
-              <strong>50 Years of Berkshire Hathaway</strong>
-              <span>Wall print</span>
-            </div>
-          </a>
-        </section>
-
-        <footer className="credits">
-          chatwarrenbuffet.com — built on the 1977–2024 shareholder letters.
-        </footer>
+        {hasMessages && (
+          <footer className="credits">
+            chatwarrenbuffet.com — built on the 1977–2024 shareholder letters.
+          </footer>
+        )}
       </main>
     </div>
   )
