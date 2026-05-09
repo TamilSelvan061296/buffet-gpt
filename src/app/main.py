@@ -5,6 +5,7 @@ from pathlib import Path
 import yaml
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from .agent import build_agent
@@ -12,6 +13,7 @@ from .schemas import ChatRequest
 
 
 CONFIG_PATH = Path(__file__).resolve().parent.parent / "scripts" / "config.yaml"
+FRONTEND_DIST = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
 
 def load_config() -> dict:
@@ -40,6 +42,9 @@ async def chat(req: ChatRequest):
             config=cfg,
             stream_mode="messages",
         ):
+            print(f"chunk type {chunk.type}")
+            print(chunk)
+            
             if chunk.type == "tool":
                 continue
             text = ""
@@ -59,3 +64,9 @@ async def chat(req: ChatRequest):
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+# Serve the built React app at / in production. In dev, run Vite separately
+# (`cd frontend && npm run dev`) — Vite's proxy forwards /chat and /health here.
+if FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
