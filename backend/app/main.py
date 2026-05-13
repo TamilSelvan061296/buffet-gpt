@@ -4,7 +4,7 @@ from pathlib import Path
 
 import yaml
 from fastapi import FastAPI
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
@@ -174,4 +174,7 @@ def health():
 # Serve the built React app at / in production. In dev, run Vite separately
 # (`cd frontend && npm run dev`) — Vite's proxy forwards /chat and /health here.
 if FRONTEND_DIST.exists():
+    @app.get("/")
+    async def root():
+        return FileResponse(FRONTEND_DIST / "index.html")
     app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")
