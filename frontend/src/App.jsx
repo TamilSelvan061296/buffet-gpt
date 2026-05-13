@@ -22,6 +22,7 @@ export default function App() {
   const [exampleIndex, setExampleIndex] = useState(0)
   const [loading, setLoading] = useState(false)
   const [openSourcesId, setOpenSourcesId] = useState(null)
+  const [openStatsId, setOpenStatsId] = useState(null)
   const sessionRef = useRef(getSessionId())
   const chatEndRef = useRef(null)
   const hasMessages = messages.length > 0
@@ -46,6 +47,7 @@ export default function App() {
     setMessages([])
     setQuestion('')
     setOpenSourcesId(null)
+    setOpenStatsId(null)
   }
 
   async function handleSubmit(e) {
@@ -97,6 +99,17 @@ export default function App() {
               prev.map((message) =>
                 message.id === assistantId
                   ? { ...message, sources }
+                  : message
+              )
+            )
+            continue
+          }
+          if (type === 'stats' && data) {
+            const stats = JSON.parse(data)
+            setMessages((prev) =>
+              prev.map((message) =>
+                message.id === assistantId
+                  ? { ...message, stats }
                   : message
               )
             )
@@ -189,31 +202,75 @@ export default function App() {
                     <span className="cursor">▍</span>
                   )}
                 </div>
-                {message.role === 'assistant' && message.sources?.length > 0 && (
+                {message.role === 'assistant' && (message.stats || message.sources?.length > 0) && (
+                  <div className="message-tools">
+                    <div>
+                      {message.stats && (
+                        <button
+                          className="message-tool-btn"
+                          type="button"
+                          onClick={() => {
+                            setOpenSourcesId(null)
+                            setOpenStatsId((current) =>
+                              current === message.id ? null : message.id
+                            )
+                          }}
+                        >
+                          Stats
+                        </button>
+                      )}
+                    </div>
+                    <div>
+                      {message.sources?.length > 0 && (
+                        <button
+                          className="message-tool-btn"
+                          type="button"
+                          onClick={() => {
+                            setOpenStatsId(null)
+                            setOpenSourcesId((current) =>
+                              current === message.id ? null : message.id
+                            )
+                          }}
+                        >
+                          Sources
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {message.role === 'assistant' && openStatsId === message.id && message.stats && (
+                  <div className="stats-panel" aria-label="Experimental answer stats">
+                    <div className="stats-eyebrow">Experimental</div>
+                    <div className="stat-row">
+                      <span>Tokens used</span>
+                      <strong>
+                        {message.stats.tokens.estimated ? '~' : ''}
+                        {message.stats.tokens.total_tokens}
+                      </strong>
+                    </div>
+                    <div className="stat-row">
+                      <span>Documents referred</span>
+                      <strong>{message.stats.documents_referred}</strong>
+                    </div>
+                    <div className="stat-row">
+                      <span>Time saved</span>
+                      <strong>~{message.stats.approx_time_saved_minutes} min</strong>
+                    </div>
+                    <p>{message.stats.time_saved_disclaimer}</p>
+                  </div>
+                )}
+                {message.role === 'assistant' && openSourcesId === message.id && message.sources?.length > 0 && (
                   <div className="source-area">
-                    <button
-                      className="sources-btn"
-                      type="button"
-                      onClick={() =>
-                        setOpenSourcesId((current) =>
-                          current === message.id ? null : message.id
-                        )
-                      }
-                    >
-                      Sources
-                    </button>
-                    {openSourcesId === message.id && (
-                      <div className="sources-panel">
-                        {message.sources.map((source, index) => (
-                          <article className="source-card" key={`${message.id}-${index}`}>
-                            <div className="source-title">
-                              {source.year ? `${source.year} letter` : `Source ${index + 1}`}
-                            </div>
-                            <p>{source.content}</p>
-                          </article>
-                        ))}
-                      </div>
-                    )}
+                    <div className="sources-panel">
+                      {message.sources.map((source, index) => (
+                        <article className="source-card" key={`${message.id}-${index}`}>
+                          <div className="source-title">
+                            {source.year ? `${source.year} letter` : `Source ${index + 1}`}
+                          </div>
+                          <p>{source.content}</p>
+                        </article>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>

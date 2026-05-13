@@ -57,11 +57,70 @@ def serialize_tool_content(content) -> list[dict]:
     ]
 
 
+def extract_usage(chunk) -> dict | None:
+    usage = getattr(chunk, "usage_metadata", None)
+    if not usage:
+        usage = getattr(chunk, "response_metadata", {}).get("usage")
+    if not usage:
+        return None
+
+    input_tokens = usage.get("input_tokens") or usage.get("prompt_tokens") or 0
+    output_tokens = usage.get("output_tokens") or usage.get("completion_tokens") or 0
+    total_tokens = usage.get("total_tokens") or input_tokens + output_tokens
+    if not total_tokens:
+        return None
+
+    return {
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": total_tokens,
+        "estimated": False,
+    }
+
+
+def estimate_tokens(*texts: str) -> int:
+    return max(1, sum(len(text or "") for text in texts) // 4)
+
+
+def build_stats(req_message: str, response_text: str, sources: list[dict], usage: dict | None) -> dict:
+    source_text = "\n\n".join(source.get("content", "") for source in sources)
+    if usage:
+        tokens = usage
+    else:
+        tokens = {
+            "input_tokens": None,
+            "output_tokens": None,
+            "total_tokens": estimate_tokens(req_message, response_text, source_text),
+            "estimated": True,
+        }
+
+    source_word_count = len(source_text.split())
+    docs_referred = len(sources)
+    reading_minutes = source_word_count / 220 if source_word_count else 0
+    lookup_minutes = docs_referred * 1.5
+    time_saved_minutes = round(reading_minutes + lookup_minutes)
+
+    return {
+        "tokens": tokens,
+        "documents_referred": docs_referred,
+        "approx_time_saved_minutes": time_saved_minutes,
+        "time_saved_disclaimer": (
+            "Approximate estimate based on retrieved context length, document count, "
+            "and a 220 words-per-minute reading speed."
+        ),
+        "experimental": True,
+    }
+
+
 @app.post("/chat")
 async def chat(req: ChatRequest):
     cfg = {"configurable": {"thread_id": req.session_id}}
 
     async def stream():
+        response_parts: list[str] = []
+        sources_for_response: list[dict] = []
+        token_usage: dict | None = None
+
         async for chunk, _ in app.state.agent.astream(
             {"messages": [{"role": "user", "content": req.message}]},
             config=cfg,
@@ -77,8 +136,14 @@ async def chat(req: ChatRequest):
                 else:
                     sources = serialize_tool_content(chunk.content)
                 if sources:
+                    sources_for_response.extend(sources)
                     yield f"event: sources\ndata: {json.dumps(sources)}\n\n"
                 continue
+
+            usage = extract_usage(chunk)
+            if usage and usage["total_tokens"] >= (token_usage or {}).get("total_tokens", 0):
+                token_usage = usage
+
             text = ""
             if isinstance(chunk.content, str):
                 text = chunk.content
@@ -87,7 +152,15 @@ async def chat(req: ChatRequest):
                     if isinstance(block, dict) and block.get("type") == "text":
                         text += block.get("text", "")
             if text:
+                response_parts.append(text)
                 yield f"data: {json.dumps(text)}\n\n"
+        stats = build_stats(
+            req.message,
+            "".join(response_parts),
+            sources_for_response,
+            token_usage,
+        )
+        yield f"event: stats\ndata: {json.dumps(stats)}\n\n"
         yield "event: end\ndata: \n\n"
 
     return StreamingResponse(stream(), media_type="text/event-stream")
